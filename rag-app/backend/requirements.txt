@@ -2,3 +2,5 @@ Flask
 Flask-Cors
 python-dotenv
 Werkzeug
+pypdf
+python-docx

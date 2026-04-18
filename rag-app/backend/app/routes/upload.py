@@ -3,6 +3,7 @@ import os
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 from app.services.document_service import extract_text
+from app.services.chunk_service import chunk_text
 
 upload_bp = Blueprint("upload", __name__)
 
@@ -46,21 +47,43 @@ def upload_file():
     try:
         extension = filename.rsplit(".", 1)[1].lower()
         extracted_text = extract_text(file_path, extension)
-        preview = extracted_text[:500]
+
+        if not extracted_text.strip():
+            return jsonify({
+                "success": False,
+                "message": "File không có nội dung text để xử lý",
+                "filename": filename
+            }), 400
+
+        chunks = chunk_text(
+            text=extracted_text,
+            chunk_size=current_app.config["CHUNK_SIZE"],
+            overlap=current_app.config["CHUNK_OVERLAP"]
+        )
+
+        enriched_chunks = []
+        for chunk in chunks:
+            enriched_chunks.append({
+                "chunk_id": f"{filename}_chunk_{chunk['chunk_index']}",
+                "chunk_index": chunk["chunk_index"],
+                "text": chunk["text"]
+            })
 
         return jsonify({
             "success": True,
-            "message": "Upload và parse file thành công",
+            "message": "Upload, parse và chunk file thành công",
             "filename": filename,
             "file_type": extension,
             "char_count": len(extracted_text),
-            "preview": preview
+            "chunk_count": len(enriched_chunks),
+            "preview": extracted_text[:500],
+            "chunks_preview": enriched_chunks[:3]
         }), 200
 
     except Exception as e:
         return jsonify({
             "success": False,
-            "message": "Upload thành công nhưng parse file thất bại",
+            "message": "Upload thành công nhưng xử lý file thất bại",
             "error": str(e),
             "filename": filename
         }), 500

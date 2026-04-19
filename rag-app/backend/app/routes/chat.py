@@ -1,3 +1,5 @@
+import json
+
 from flask import Blueprint, request, jsonify, current_app
 from openai import NotFoundError
 from app.services.embedding_service import (
@@ -5,6 +7,7 @@ from app.services.embedding_service import (
     generate_answer_with_context,
     is_llm_transport_error,
     llm_unreachable_user_hint,
+    llm_timeout_user_hint,
 )
 from app.services.vector_store_service import (
     query_similar_chunks,
@@ -13,6 +16,25 @@ from app.services.vector_store_service import (
 )
 
 chat_bp = Blueprint("chat", __name__)
+
+
+def _load_request_json() -> dict | None:
+    data = request.get_json(silent=True)
+    if data is not None:
+        return data
+
+    raw = request.get_data(cache=True)
+    if not raw:
+        return None
+
+    for encoding in ("utf-8", "utf-8-sig", "cp1258", "cp1252", "latin-1"):
+        try:
+            parsed = json.loads(raw.decode(encoding))
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
 
 
 def _log_embedding_failure(exc: BaseException) -> None:
@@ -49,7 +71,7 @@ def _missing_model_warning(exc: BaseException) -> str | None:
 
 @chat_bp.route("/api/chat", methods=["POST"])
 def chat():
-    data = request.get_json()
+    data = _load_request_json()
     question = data.get("question") if data else None
 
     if not question:
@@ -125,6 +147,8 @@ def chat():
             )
             if is_llm_transport_error(e):
                 backend_warnings.append(llm_unreachable_user_hint())
+            if "timeout" in e.__class__.__name__.lower() or "timed out" in str(e).lower():
+                backend_warnings.append(llm_timeout_user_hint())
             missing_model_warning = _missing_model_warning(e)
             if missing_model_warning:
                 backend_warnings.append(missing_model_warning)

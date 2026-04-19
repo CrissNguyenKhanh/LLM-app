@@ -1,0 +1,35 @@
+import React from "react";
+
+export default function SourceList({ sources }) {
+  return (
+    <section className="panel sources-panel">
+      <div className="panel-header">
+        <p className="eyebrow">Retrieved Chunks</p>
+        <h2>Nguon tra ve</h2>
+      </div>
+
+      {!sources.length ? (
+        <div className="empty-sources">
+          Chua co source nao. Sau khi chat, cac chunk lien quan se hien o day.
+        </div>
+      ) : (
+        <div className="source-list">
+          {sources.map((source, index) => (
+            <article className="source-card" key={`${source.filename}-${index}`}>
+              <div className="source-top">
+                <strong>{source.filename || "Khong ro file"}</strong>
+                <span>{`Chunk ${source.chunk_index ?? "?"}`}</span>
+              </div>
+              <p>{source.snippet || "Khong co snippet."}</p>
+              <small>
+                {source.distance != null
+                  ? `distance: ${Number(source.distance).toFixed(4)}`
+                  : "distance: n/a"}
+              </small>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}

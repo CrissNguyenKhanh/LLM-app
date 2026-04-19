@@ -4,3 +4,5 @@ python-dotenv
 Werkzeug
 pypdf
 python-docx
+openai
+chromadb

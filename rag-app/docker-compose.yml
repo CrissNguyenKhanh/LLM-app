@@ -1,0 +1,19 @@
+env = "DATABASE_LINE1"
+version: '3.8'
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    POSTGRES_DB: ${DATABASE_NAME}
+  ports:
+    - "5432:5432"
+DockerImage:
+  build: .
+  ports:
+    - "8000:8000"
+  depends_on:
+    - postgres
+  environment:
+

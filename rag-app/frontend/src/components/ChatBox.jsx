@@ -5,11 +5,13 @@ export default function ChatBox({
   onQuestionChange,
   onSubmit,
   loading,
+  disabled,
 }) {
   return (
     <form className="chat-box" onSubmit={onSubmit}>
       <textarea
         value={question}
+        disabled={disabled}
         onChange={(event) => onQuestionChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
@@ -17,15 +19,17 @@ export default function ChatBox({
             onSubmit(event);
           }
         }}
-        placeholder="Nhan Enter de gui, Shift+Enter de xuong dong..."
+        placeholder="Nhan Enter de gui tin nhan..."
         rows={1}
       />
       <div className="chat-actions">
-        <span className="composer-hint">
-          Freestyle luon hoat dong. Neu upload tai lieu, backend tu dong tra ve sources.
-        </span>
-        <button className="primary-button" type="submit" disabled={loading || !question.trim()}>
-          {loading ? "Sending..." : "Send"}
+        <span className="composer-hint">RAG se them source neu co tai lieu active.</span>
+        <button
+          className="primary-button"
+          type="submit"
+          disabled={disabled || loading || !question.trim()}
+        >
+          {loading ? "Dang gui..." : "Gui"}
         </button>
       </div>
     </form>

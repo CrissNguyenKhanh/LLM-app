@@ -6,12 +6,13 @@ export default function UploadPanel({
   onUpload,
   uploading,
   uploadResult,
+  activeDocument,
 }) {
   return (
     <section className="panel upload-panel">
       <div className="panel-header">
-        <p className="eyebrow">Document Intake</p>
-        <h2>Upload tai lieu (tuy chon)</h2>
+        <p className="eyebrow">Knowledge</p>
+        <h2>Upload tai lieu</h2>
       </div>
 
       <label className="file-picker">
@@ -19,13 +20,15 @@ export default function UploadPanel({
         <input type="file" accept=".pdf,.txt,.docx" onChange={onFileChange} />
       </label>
 
+      {activeDocument ? <div className="active-doc">Active: {activeDocument}</div> : null}
+
       <div className="upload-actions">
         <div className="upload-meta">
           <strong>{selectedFile?.name || "Chua chon file"}</strong>
           <span>
             {selectedFile
               ? `${Math.max(1, Math.round(selectedFile.size / 1024))} KB`
-              : "Freestyle luon chat duoc. Upload de bat RAG + sources."}
+              : "Upload de bat RAG va hien source cho cau tra loi."}
           </span>
         </div>
 
@@ -35,7 +38,7 @@ export default function UploadPanel({
           onClick={onUpload}
           disabled={!selectedFile || uploading}
         >
-          {uploading ? "Dang upload..." : "Upload tai lieu"}
+          {uploading ? "Dang upload..." : "Tai len"}
         </button>
       </div>
 

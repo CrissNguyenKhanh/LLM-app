@@ -18,9 +18,20 @@ _default_chat = "gpt-4o-mini" if _use_openai_cloud_defaults else "llama3.2"
 
 
 class Config:
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
+    SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "rag_app_session")
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "false").lower() == "true"
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
     VECTOR_DB_DIR = os.path.join(BASE_DIR, "chroma_db")
+    USERS_DB_PATH = os.path.join(BASE_DIR, "data", "users.json")
     CHROMA_COLLECTION_NAME = "documents"
+    FRONTEND_ORIGINS = [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    ]
 
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
     ALLOWED_EXTENSIONS = {"pdf", "txt", "docx"}

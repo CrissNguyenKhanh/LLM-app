@@ -16,6 +16,10 @@ uploads/
 chroma_db/
 *.sqlite3
 *.db
+backend/data/
+
+# Frontend build output
+frontend/dist/
 
 # OS / editor
 .DS_Store

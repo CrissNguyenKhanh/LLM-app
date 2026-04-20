@@ -13,6 +13,7 @@ from app.services.embedding_service import (
     llm_timeout_user_hint,
     llm_unreachable_user_hint,
 )
+from app.utils.auth import require_auth
 from app.services.vector_store_service import (
     get_store_stats,
     keyword_search_chunks,
@@ -225,6 +226,7 @@ def _answer_from_context(
 
 
 @chat_bp.route("/api/chat", methods=["POST"])
+@require_auth
 def chat():
     data = _load_request_json()
     question = data.get("question") if data else None

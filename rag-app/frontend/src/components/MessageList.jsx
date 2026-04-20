@@ -2,20 +2,27 @@ import React from "react";
 
 function Bubble({ role, content, meta }) {
   return (
-    <article className={`bubble bubble-${role}`}>
-      <div className="bubble-role">{role === "user" ? "You" : "Assistant"}</div>
-      <p>{content}</p>
-      {meta ? <div className="bubble-meta">{meta}</div> : null}
+    <article className={`message-row message-row-${role}`}>
+      <div className={`avatar avatar-${role}`}>{role === "user" ? "U" : "AI"}</div>
+      <div className={`bubble bubble-${role}`}>
+        <div className="bubble-role">{role === "user" ? "You" : "Assistant"}</div>
+        <p>{content}</p>
+        {meta ? <div className="bubble-meta">{meta}</div> : null}
+      </div>
     </article>
   );
 }
 
-export default function MessageList({ messages, loading }) {
+export default function MessageList({ messages, loading, activeConversationTitle }) {
   if (!messages.length) {
     return (
-      <div className="empty-state">
-        <p>Hoi bat ky cau gi (freestyle) — khong can upload.</p>
-        <span>Neu ban upload tai lieu, cau tra loi se co them danh sach chunk “Sources”.</span>
+      <div className="empty-chatgpt">
+        <div className="empty-chatgpt-mark">AI</div>
+        <h2>{activeConversationTitle || "How can I help you today?"}</h2>
+        <p>
+          Chat freestyle ngay lap tuc. Neu upload them tai lieu, cau tra loi se co
+          danh sach source va chunk lien quan.
+        </p>
       </div>
     );
   }
@@ -31,9 +38,12 @@ export default function MessageList({ messages, loading }) {
         />
       ))}
       {loading ? (
-        <article className="bubble bubble-assistant bubble-loading">
-          <div className="bubble-role">Assistant</div>
-          <p>Dang goi backend... (Ollama local lan dau co the mat 1–3 phut).</p>
+        <article className="message-row message-row-assistant">
+          <div className="avatar avatar-assistant">AI</div>
+          <div className="bubble bubble-assistant bubble-loading">
+            <div className="bubble-role">Assistant</div>
+            <p>Dang goi backend va tong hop cau tra loi...</p>
+          </div>
         </article>
       ) : null}
     </div>

@@ -5,7 +5,7 @@ export default function SourceList({ sources }) {
     <section className="panel sources-panel">
       <div className="panel-header">
         <p className="eyebrow">Sources</p>
-        <h2>Chunks truy xuat</h2>
+        <h2>Doan trich xuat</h2>
       </div>
 
       {!sources.length ? (

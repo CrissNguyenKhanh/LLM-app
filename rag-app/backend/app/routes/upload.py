@@ -16,6 +16,7 @@ from app.services.vector_store_service import (
     save_chunks_to_keyword_store,
     save_chunks_to_vector_store,
 )
+from app.utils.auth import require_auth
 
 upload_bp = Blueprint("upload", __name__)
 
@@ -28,6 +29,7 @@ def allowed_file(filename: str) -> bool:
 
 
 @upload_bp.route("/api/upload", methods=["POST"])
+@require_auth
 def upload_file():
     if "file" not in request.files:
         return jsonify({

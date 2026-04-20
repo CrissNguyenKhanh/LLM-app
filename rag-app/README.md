@@ -1,64 +1,173 @@
-# RAG App (IDE + Chat + RAG MVP)
+# RAG Chat Workspace
 
-Backend Flask cung cap 3 endpoint chinh:
+![MIT License](https://img.shields.io/badge/License-MIT-green.svg)
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![Flask](https://img.shields.io/badge/Backend-Flask-black.svg)
+![Vite](https://img.shields.io/badge/Frontend-Vite-646CFF.svg)
+![React](https://img.shields.io/badge/React-18-61DAFB.svg)
 
-- `GET /api/health`: check service + `llm_backend_reachable` (goi `/v1/models` tren `OPENAI_BASE_URL`)
-- `POST /api/upload`: upload tai lieu (`txt`, `pdf`, `docx`), chunk, embedding va index vao Chroma
-- `POST /api/chat`: hoi dap theo retrieval tu vector store
+A lightweight **RAG (Retrieval-Augmented Generation)** workspace with a ChatGPT-style UI:
+- Upload documents (PDF/TXT/DOCX) → chunk + embed → store in **Chroma**
+- Chat with **one document**, **multiple selected documents**, or **all documents**
+- Manage a **Document Library** (list / set active / delete)
+- Show sources (snippets + chunk metadata)
+- Optional local auth (session cookie), easy to disable for demos
+- Paste images into the chat composer (Ctrl+V) for quick sharing (frontend preview + message attachment)
 
-## Chay backend
+---
 
-1. Di chuyen vao `backend`
-2. Tao va kich hoat virtualenv
-3. Cai dependencies:
+## Fun visuals (because README should not be boring)
 
-```bash
-pip install -r requirements.txt
+![Knowledge is power](https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1200&q=60)
+
+> Add your own screenshots here (recommended):
+>
+> - `docs/screenshots/library.png`
+> - `docs/screenshots/chat.png`
+>
+> Then embed them:
+>
+> `![Document Library](docs/screenshots/library.png)`
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+  U[User] -->|Upload PDF/TXT/DOCX| FE[React + Vite Frontend]
+  U -->|Ask question| FE
+  FE -->|/api/upload| BE[Flask API]
+  FE -->|/api/chat| BE
+  FE -->|/api/documents| BE
+  BE -->|extract text + chunk| CH[Chunker]
+  BE -->|embeddings| LLM[Ollama or OpenAI-compatible API]
+  BE -->|vectors + metadata| CHROMA[(ChromaDB)]
+  BE -->|keyword fallback| KW[(keyword_chunks.json)]
+  BE -->|documents registry| REG[(documents.json)]
+  BE -->|answer + sources| FE
 ```
 
-4. Cai [Ollama cho Windows](https://ollama.com/download/windows) (file cai `.exe`), chay installer, **dong mo lai PowerShell** (hoac dang nhap lai Windows) de lenh `ollama` co trong PATH. Neu van bao *not recognized*: mo Start Menu mo ung dung **Ollama** mot lan; hoac them thu muc cai dat (thuong `%LOCALAPPDATA%\Programs\Ollama`) vao bien PATH.
+---
 
-Sau do keo model:
+## Features
 
-```bash
+### Document Library (the “most valuable” upgrade)
+- **List uploaded documents** with metadata
+- **Set active document** (session-scoped)
+- **Delete a document** (file + vector index + keyword index + registry record)
+- **Chat scope selector**:
+  - **Active**: use the current active doc
+  - **Selected**: tick multiple docs
+  - **All**: search across the whole library
+
+### Chat modes (current behavior)
+- If there is **no active document**, chat falls back to **freeform** answer
+- If RAG retrieval fails or the LLM refuses, the backend falls back to an **extractive answer from retrieved context**
+
+---
+
+## API endpoints (backend)
+
+- `GET /api/health`
+  - Returns backend status + `llm_backend_reachable`
+- `POST /api/upload`
+  - Upload a document, extract text, chunk, embed, index
+- `GET /api/documents`
+  - List documents + current `active_document`
+- `POST /api/documents/active`
+  - Set active document: `{ "filename": "..." }`
+- `DELETE /api/documents/<filename>`
+  - Delete document and indexes
+- `POST /api/chat`
+  - Body:
+    - `question` (string)
+    - `document_mode`: `"active" | "selected" | "all"`
+    - `selected_documents`: `string[]` (when mode = `selected`)
+
+---
+
+## Quick start (Windows / PowerShell)
+
+### 1) Start Ollama (recommended for local demos)
+
+Install Ollama for Windows, then pull models:
+
+```powershell
 ollama pull nomic-embed-text
 ollama pull llama3.2
 ```
 
-5. Tao file `.env` trong `backend`:
+### 2) Backend (Flask)
 
-**Chi Ollama (khuyen nghi cho do an):** mac dinh backend goi `http://127.0.0.1:11434/v1` — **khong** doc `OPENAI_API_KEY` de tu chuyen sang OpenAI (tranh lo quota nhu khi .env van con key cu).
+From `rag-app/backend`:
 
-```env
-# OPENAI_BASE_URL=http://127.0.0.1:11434/v1   # tuy chon, day la mac dinh
-EMBEDDING_MODEL=nomic-embed-text
-CHAT_MODEL=llama3.2
-# OPENAI_API_KEY=...  # tuy chon; Ollama bo qua, co the xoa neu chi dung local
-# LLM_PROBE_TIMEOUT_SEC=15   # tuy chon: health check doi Ollama (mac dinh 10 giay)
-# CHAT_COMPLETION_TIMEOUT_SEC=300   # timeout mot lan goi chat toi Ollama
-# CHAT_MAX_TOKENS=768                 # gioi han do dai cau tra loi (nhanh hon)
-# RAG_MAX_CONTEXT_CHARS=12000         # rut ngan context gui vao LLM
-# OPENAI_HTTP_TIMEOUT_SEC=600         # timeout HTTP tong (embedding + chat)
-```
-
-Neu doi sang embedding model khac (hoac tung dung OpenAI cloud), **xoa thu muc** `backend/chroma_db` roi upload lai tai lieu de tranh lech so chieu embedding.
-
-Dung lai OpenAI cloud: dat `OPENAI_BASE_URL=https://api.openai.com/v1` va `OPENAI_API_KEY=sk-...`, kem `EMBEDDING_MODEL` / `CHAT_MODEL` tuong ung.
-
-Dung LM Studio: dat `OPENAI_BASE_URL` theo Local Server (vi du `http://127.0.0.1:1234/v1`).
-
-6. Chay server:
-
-```bash
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 python run.py
 ```
 
-Mac dinh se chay tai `http://127.0.0.1:5000`.
+Backend defaults to `http://127.0.0.1:5000`.
 
-**Luu y:** Backend can Ollama (hoac server OpenAI-compatible khac) dang chay khi upload/chat.
+### 3) Frontend (Vite + React)
 
-**Loi Windows 10061 / connection refused:** khong co tien trinh lang nghe (thuong la Ollama chua mo). Mo app Ollama hoac chay `ollama serve`, kiem tra `GET http://127.0.0.1:5000/api/health` — neu `llm_backend_reachable` la `false` thi xem `llm_backend_detail`. Chat/upload van tra JSON kem `backend_warnings` / `backend_warning` goi y thay vi chi stack trace trong log.
+From `rag-app/frontend`:
 
-**`llm_backend_detail` la `timed out`:** Ollama dang chay rat cham hoac chua san sang — doi vai giay roi goi lai `/api/health`; hoac tang `LLM_PROBE_TIMEOUT_SEC` (vi du `15`). Neu timeout mai: kiem tra Task Manager co process Ollama, tat VPN/firewall chan loopback, thu `http://127.0.0.1:11434/api/version` tren trinh duyet.
+```powershell
+npm install
+npm run dev
+```
 
-**Postman / Thunder Client “load mai” khi `/api/chat`:** lan dau Ollama nap model vao RAM co the **1–3 phut**; CPU yeu thi chat RAG cung lau. Da gioi han `max_tokens` va rut context (`RAG_MAX_CONTEXT_CHARS`). Co the them vao `.env`: `CHAT_COMPLETION_TIMEOUT_SEC=480`, `CHAT_MAX_TOKENS=512`, `RAG_MAX_CONTEXT_CHARS=8000`, hoac doi model nhe hon (`ollama pull llama3.2:1b` + `CHAT_MODEL=llama3.2:1b`).
+Then open the local URL shown by Vite (usually `http://localhost:5173` or the next available port).
+
+---
+
+## Configuration
+
+Backend config lives in `rag-app/backend/.env` (optional).
+
+### Local Ollama (default)
+
+```env
+# OPENAI_BASE_URL=http://127.0.0.1:11434/v1
+EMBEDDING_MODEL=nomic-embed-text
+CHAT_MODEL=llama3.2
+
+# Optional tuning:
+# LLM_PROBE_TIMEOUT_SEC=15
+# CHAT_COMPLETION_TIMEOUT_SEC=120
+# CHAT_MAX_TOKENS=384
+# RAG_MAX_CONTEXT_CHARS=6000
+```
+
+### Index replacement
+
+By default, new uploads **do not wipe** old documents.
+
+To restore the old behavior (replace the whole index on each upload):
+
+```env
+REPLACE_INDEX_ON_UPLOAD=true
+```
+
+---
+
+## Troubleshooting
+
+### Windows error 10061 / connection refused
+Ollama is not running yet. Start the Ollama app or run `ollama serve`, then re-check:
+- `GET http://127.0.0.1:5000/api/health`
+
+### Slow first response
+The first chat call may be slow because Ollama is loading the model into RAM.
+Try smaller models (example: `llama3.2:1b`) and tune:
+- `CHAT_MAX_TOKENS`
+- `RAG_MAX_CONTEXT_CHARS`
+
+---
+
+## License
+
+MIT — see [`LICENSE`](../LICENSE).

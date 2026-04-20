@@ -4,13 +4,13 @@ export default function SourceList({ sources }) {
   return (
     <section className="panel sources-panel">
       <div className="panel-header">
-        <p className="eyebrow">Retrieved Chunks</p>
-        <h2>Nguon tra ve</h2>
+        <p className="eyebrow">Sources</p>
+        <h2>Chunks truy xuat</h2>
       </div>
 
       {!sources.length ? (
         <div className="empty-sources">
-          Chua co source nao. Sau khi chat, cac chunk lien quan se hien o day.
+          Chua co source. Khi ban upload tai lieu va hoi, cac chunk lien quan se hien o day.
         </div>
       ) : (
         <div className="source-list">

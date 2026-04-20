@@ -14,6 +14,76 @@ function buildMessage(role, content, meta) {
   };
 }
 
+function buildAssistantMeta(payload) {
+  const modelText = payload.llm_model ? `Model: ${payload.llm_model}` : null;
+  const activeDocText = payload.active_document ? `Tai lieu active: ${payload.active_document}` : null;
+  const warningsText = payload.backend_warnings?.length
+    ? `Canh bao: ${payload.backend_warnings.join(" | ")}`
+    : null;
+
+  if (payload.answer_status === "freestyle") {
+    return [modelText, "Freestyle mode (khong dung RAG).", warningsText].filter(Boolean).join(" | ");
+  }
+
+  if (payload.answer_status === "freestyle_error") {
+    return [modelText, "Khong goi duoc LLM, vui long kiem tra backend.", warningsText]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "refused") {
+    return [modelText, "Ollama da tu choi cau tra loi nay.", warningsText]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "fallback") {
+    return [modelText, "Khong lay duoc cau tra loi tu Ollama, dang hien snippet fallback.", warningsText]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "needs_clarification") {
+    return [modelText, "Can ban dat cau hoi ro hon."]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "no_match") {
+    return [modelText, activeDocText, "Khong tim thay chunk du lien quan trong tai lieu.", warningsText]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "extractive_summary") {
+    return [modelText, activeDocText, "Tra loi duoc trich xuat truc tiep tu tai lieu (summary mode).", warningsText]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "extractive_reason") {
+    return [modelText, activeDocText, "Tra loi duoc trich xuat truc tiep tu tai lieu (reason mode).", warningsText]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "refused_fallback") {
+    return [modelText, activeDocText, "Model tu choi, backend da fallback sang cau tra loi trich xuat tu tai lieu.", warningsText]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  if (payload.answer_status === "no_active_document") {
+    return [modelText, "Chua co tai lieu active de truy van."]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  return [modelText, activeDocText, warningsText || "Phan hoi tu Ollama da duoc hien thi ben tren."]
+    .filter(Boolean)
+    .join(" | ");
+}
+
 export default function Home() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
@@ -24,6 +94,7 @@ export default function Home() {
   const [uploadResult, setUploadResult] = useState(null);
   const [error, setError] = useState("");
   const [health, setHealth] = useState(null);
+  const [sideOpen, setSideOpen] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -82,15 +153,14 @@ export default function Home() {
 
     try {
       const payload = await sendChat(trimmed);
-      const warningText = payload.backend_warnings?.length
-        ? `Canh bao: ${payload.backend_warnings.join(" | ")}`
-        : payload.success
-          ? "Tra loi thanh cong."
-          : "Khong ro trang thai.";
 
       setMessages((current) => [
         ...current,
-        buildMessage("assistant", payload.answer || "Khong co cau tra loi.", warningText),
+        buildMessage(
+          "assistant",
+          payload.answer || "Khong co cau tra loi.",
+          buildAssistantMeta(payload)
+        ),
       ]);
       setSources(payload.sources || []);
     } catch (err) {
@@ -106,64 +176,59 @@ export default function Home() {
   }
 
   return (
-    <main className="layout-shell">
-      <div className="hero-card">
-        <div>
-          <p className="eyebrow">RAG Chat Lab</p>
-          <h1>Test upload va hoi dap ma khong can ngoi cho Postman quay mai</h1>
-          <p className="hero-copy">
-            Giao dien nay noi thang den backend Flask de ban xem health, upload
-            tai lieu va chat voi cac chunk retrieve duoc.
-          </p>
-        </div>
-
-        <div className="status-grid">
-          <div className="status-card">
-            <span>API Base</span>
-            <strong>{API_BASE_URL}</strong>
-          </div>
-          <div className="status-card">
-            <span>LLM Backend</span>
-            <strong>
-              {health?.llm_backend_reachable ? "Reachable" : "Dang co van de"}
-            </strong>
-          </div>
-          <div className="status-card">
-            <span>Detail</span>
-            <strong>{health?.llm_backend_detail || "Dang kiem tra..."}</strong>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="topbar-left">
+          <div className="brand">RAG Chat</div>
+          <div className="topbar-meta">
+            <span className="pill">API: {API_BASE_URL}</span>
+            <span className={`pill ${health?.llm_backend_reachable ? "pill-ok" : "pill-warn"}`}>
+              LLM: {health?.llm_backend_reachable ? "Reachable" : "Unreachable"}
+            </span>
+            <span className="pill pill-muted">{health?.llm_backend_detail || "Checking..."}</span>
           </div>
         </div>
-      </div>
+        <div className="topbar-right">
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={() => setSideOpen((v) => !v)}
+          >
+            {sideOpen ? "Hide panels" : "Show panels"}
+          </button>
+        </div>
+      </header>
 
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <section className="main-grid">
-        <div className="left-column">
-          <UploadPanel
-            selectedFile={selectedFile}
-            onFileChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-            onUpload={handleUpload}
-            uploading={uploading}
-            uploadResult={uploadResult}
-          />
+      <div className={`chat-layout ${sideOpen ? "chat-layout-split" : "chat-layout-full"}`}>
+        {sideOpen ? (
+          <aside className="side-panel">
+            <UploadPanel
+              selectedFile={selectedFile}
+              onFileChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+              onUpload={handleUpload}
+              uploading={uploading}
+              uploadResult={uploadResult}
+            />
+            <SourceList sources={sources} />
+          </aside>
+        ) : null}
 
-          <section className="panel chat-panel">
-            <div className="panel-header">
-              <p className="eyebrow">Conversation</p>
-              <h2>Hoi dap voi tai lieu</h2>
-            </div>
+        <main className="chat-main">
+          <div className="chat-main-inner">
             <MessageList messages={messages} loading={loading} />
+          </div>
+          <div className="chat-composer">
             <ChatBox
               question={question}
               onQuestionChange={setQuestion}
               onSubmit={handleChat}
               loading={loading}
             />
-          </section>
-        </div>
-
-        <SourceList sources={sources} />
-      </section>
-    </main>
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }

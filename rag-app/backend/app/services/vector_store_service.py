@@ -19,6 +19,17 @@ def get_or_create_collection():
     return collection
 
 
+def clear_vector_store() -> None:
+    client = get_chroma_client()
+    collection_name = current_app.config["CHROMA_COLLECTION_NAME"]
+    try:
+        client.delete_collection(name=collection_name)
+    except Exception:
+        # Collection may not exist yet.
+        pass
+    client.get_or_create_collection(name=collection_name)
+
+
 def save_chunks_to_vector_store(chunks: list[dict]):
     if not chunks:
         return 0
@@ -46,13 +57,20 @@ def save_chunks_to_vector_store(chunks: list[dict]):
     return len(ids)
 
 
-def query_similar_chunks(query_embedding: list[float], top_k: int = 4) -> list[dict]:
+def query_similar_chunks(
+    query_embedding: list[float],
+    top_k: int = 4,
+    filename_filter: str | None = None,
+) -> list[dict]:
     collection = get_or_create_collection()
-    result = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"]
-    )
+    query_kwargs = {
+        "query_embeddings": [query_embedding],
+        "n_results": top_k,
+        "include": ["documents", "metadatas", "distances"],
+    }
+    if filename_filter:
+        query_kwargs["where"] = {"filename": filename_filter}
+    result = collection.query(**query_kwargs)
 
     documents = result.get("documents", [[]])[0]
     metadatas = result.get("metadatas", [[]])[0]
@@ -73,6 +91,12 @@ def _get_keyword_store_path() -> str:
     db_path = current_app.config["VECTOR_DB_DIR"]
     os.makedirs(db_path, exist_ok=True)
     return os.path.join(db_path, "keyword_chunks.json")
+
+
+def clear_keyword_store() -> None:
+    store_path = _get_keyword_store_path()
+    if os.path.exists(store_path):
+        os.remove(store_path)
 
 
 def _load_keyword_chunks() -> list[dict]:
@@ -113,12 +137,24 @@ def save_chunks_to_keyword_store(chunks: list[dict]) -> int:
     return added
 
 
-def keyword_search_chunks(question: str, top_k: int = 4) -> list[dict]:
+def keyword_search_chunks(
+    question: str,
+    top_k: int = 4,
+    filename_filter: str | None = None,
+) -> list[dict]:
     keyword_chunks = _load_keyword_chunks()
     tokens = {token.lower() for token in question.split() if token.strip()}
 
     if not keyword_chunks:
         return []
+
+    if filename_filter:
+        keyword_chunks = [
+            item for item in keyword_chunks
+            if (item.get("metadata") or {}).get("filename") == filename_filter
+        ]
+        if not keyword_chunks:
+            return []
 
     if not tokens:
         return [
@@ -147,17 +183,7 @@ def keyword_search_chunks(question: str, top_k: int = 4) -> list[dict]:
     scored_rows.sort(key=lambda row: row["score"], reverse=True)
     if scored_rows:
         return scored_rows[:top_k]
-
-    # Fallback: van tra ve mot vai chunk dau de chat khong bi "trong"
-    return [
-        {
-            "text": item.get("text", ""),
-            "metadata": item.get("metadata", {}),
-            "distance": None,
-            "score": 0
-        }
-        for item in keyword_chunks[:top_k]
-    ]
+    return []
 
 
 def get_store_stats() -> dict:

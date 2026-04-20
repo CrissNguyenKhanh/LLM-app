@@ -11,7 +11,7 @@ export default function UploadPanel({
     <section className="panel upload-panel">
       <div className="panel-header">
         <p className="eyebrow">Document Intake</p>
-        <h2>Nap tai lieu vao RAG</h2>
+        <h2>Upload tai lieu (tuy chon)</h2>
       </div>
 
       <label className="file-picker">
@@ -25,7 +25,7 @@ export default function UploadPanel({
           <span>
             {selectedFile
               ? `${Math.max(1, Math.round(selectedFile.size / 1024))} KB`
-              : "Sau khi upload, backend se chunk va index vao Chroma."}
+              : "Freestyle luon chat duoc. Upload de bat RAG + sources."}
           </span>
         </div>
 

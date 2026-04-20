@@ -2,7 +2,7 @@ import json
 import re
 import unicodedata
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
 from openai import NotFoundError
 
 from app.services.embedding_service import (
@@ -230,6 +230,8 @@ def _answer_from_context(
 def chat():
     data = _load_request_json()
     question = data.get("question") if data else None
+    document_mode = (data.get("document_mode") if data else None) or "active"
+    selected_documents = data.get("selected_documents") if data else None
 
     if not question:
         return jsonify({
@@ -237,8 +239,8 @@ def chat():
             "message": "Thieu question",
         }), 400
 
-    active_document = current_app.config.get("ACTIVE_DOCUMENT_FILENAME")
-    if not active_document:
+    active_document = str(session.get("active_document") or "").strip()
+    if document_mode == "active" and not active_document:
         backend_warnings: list[str] = []
         try:
             answer = generate_answer_freeform(
@@ -290,6 +292,10 @@ def chat():
     try:
         matches = []
         backend_warnings: list[str] = []
+        filename_filter = active_document if document_mode == "active" else None
+        filenames_filter = None
+        if document_mode == "selected" and isinstance(selected_documents, list):
+            filenames_filter = [str(item) for item in selected_documents]
 
         try:
             query_embedding = get_embedding(
@@ -299,7 +305,8 @@ def chat():
             matches = query_similar_chunks(
                 query_embedding=query_embedding,
                 top_k=current_app.config["TOP_K"],
-                filename_filter=active_document,
+                filename_filter=filename_filter,
+                filenames_filter=filenames_filter,
             )
         except Exception as exc:
             _log_embedding_failure(exc)
@@ -308,7 +315,8 @@ def chat():
             matches = keyword_search_chunks(
                 question=question,
                 top_k=current_app.config["TOP_K"],
-                filename_filter=active_document,
+                filename_filter=filename_filter,
+                filenames_filter=filenames_filter,
             )
 
         matches = _filter_relevant_matches(matches)
@@ -381,6 +389,8 @@ def chat():
             "answer_status": answer_status,
             "llm_model": current_app.config["CHAT_MODEL"],
             "active_document": active_document,
+            "document_mode": document_mode,
+            "selected_documents": filenames_filter or [],
             "sources": sources,
         }
         if backend_warnings:

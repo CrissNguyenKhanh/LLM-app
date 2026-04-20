@@ -42,13 +42,19 @@ export async function fetchHealth() {
   return request("/api/health");
 }
 
-export async function sendChat(question) {
+export async function sendChat(question, options = {}) {
+  const { documentMode = "active", selectedDocuments = [], images = [] } = options || {};
   return request("/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json; charset=UTF-8",
     },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({
+      question,
+      document_mode: documentMode,
+      selected_documents: selectedDocuments,
+      images,
+    }),
   });
 }
 
@@ -59,6 +65,26 @@ export async function uploadDocument(file) {
   return request("/api/upload", {
     method: "POST",
     body: formData,
+  });
+}
+
+export async function fetchDocuments() {
+  return request("/api/documents");
+}
+
+export async function setActiveDocument(filename) {
+  return request("/api/documents/active", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({ filename }),
+  });
+}
+
+export async function deleteDocument(filename) {
+  return request(`/api/documents/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
   });
 }
 

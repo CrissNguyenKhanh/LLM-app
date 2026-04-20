@@ -2,15 +2,19 @@ import React, { useEffect, useState } from "react";
 import {
   API_BASE_URL,
   fetchCurrentUser,
+  fetchDocuments,
   fetchHealth,
+  deleteDocument,
   loginUser,
   logoutUser,
   registerUser,
   sendChat,
+  setActiveDocument as apiSetActiveDocument,
   uploadDocument,
 } from "../api/chatApi";
 import AuthScreen from "../components/AuthScreen";
 import ChatBox from "../components/ChatBox";
+import DocumentLibrary from "../components/DocumentLibrary";
 import MessageList from "../components/MessageList";
 import SourceList from "../components/SourceList";
 import UploadPanel from "../components/UploadPanel";
@@ -61,6 +65,12 @@ export default function Home() {
   const [error, setError] = useState("");
   const [health, setHealth] = useState(null);
   const [activeDocument, setActiveDocument] = useState("");
+  const [documents, setDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState("");
+  const [documentMode, setDocumentMode] = useState("active");
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [composerImages, setComposerImages] = useState([]);
   const booting = authLoading || !health;
 
   useEffect(() => {
@@ -150,6 +160,41 @@ export default function Home() {
     );
   }, [conversations, user]);
 
+  useEffect(() => {
+    if (!user?.username) {
+      setDocuments([]);
+      setSelectedDocuments([]);
+      setActiveDocument("");
+      return;
+    }
+
+    let mounted = true;
+    setDocumentsLoading(true);
+    setDocumentsError("");
+    fetchDocuments()
+      .then((payload) => {
+        if (!mounted) {
+          return;
+        }
+        setDocuments(payload.documents || []);
+        setActiveDocument(payload.active_document || "");
+      })
+      .catch((err) => {
+        if (mounted) {
+          setDocumentsError(err.message);
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setDocumentsLoading(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
+
   function syncConversation(nextMessages, nextSources = []) {
     setMessages(nextMessages);
     setSources(nextSources);
@@ -214,6 +259,12 @@ export default function Home() {
       setUploadResult(null);
       setSelectedFile(null);
       setActiveDocument("");
+      setDocuments([]);
+      setDocumentsError("");
+      setDocumentsLoading(false);
+      setDocumentMode("active");
+      setSelectedDocuments([]);
+      setComposerImages([]);
       setError("");
     }
   }
@@ -230,10 +281,63 @@ export default function Home() {
       const payload = await uploadDocument(selectedFile);
       setUploadResult(payload);
       setActiveDocument(payload.active_document || payload.filename || "");
+      setDocumentsLoading(true);
+      const docsPayload = await fetchDocuments();
+      setDocuments(docsPayload.documents || []);
+      setActiveDocument(docsPayload.active_document || payload.active_document || payload.filename || "");
     } catch (err) {
       setError(err.message);
     } finally {
       setUploading(false);
+      setDocumentsLoading(false);
+    }
+  }
+
+  function toggleSelectDocument(filename) {
+    if (!filename) {
+      return;
+    }
+    setSelectedDocuments((current) =>
+      current.includes(filename)
+        ? current.filter((name) => name !== filename)
+        : [...current, filename]
+    );
+  }
+
+  async function handleActivateDocument(filename) {
+    setDocumentsError("");
+    setDocumentsLoading(true);
+    try {
+      const payload = await apiSetActiveDocument(filename);
+      setActiveDocument(payload.active_document || "");
+    } catch (err) {
+      setDocumentsError(err.message);
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }
+
+  async function handleDeleteDocument(filename) {
+    if (!filename) {
+      return;
+    }
+    const ok = window.confirm(`Xoa tai lieu '${filename}'? (se xoa file va index)`);
+    if (!ok) {
+      return;
+    }
+
+    setDocumentsError("");
+    setDocumentsLoading(true);
+    try {
+      await deleteDocument(filename);
+      const payload = await fetchDocuments();
+      setDocuments(payload.documents || []);
+      setActiveDocument(payload.active_document || "");
+      setSelectedDocuments((current) => current.filter((name) => name !== filename));
+    } catch (err) {
+      setDocumentsError(err.message);
+    } finally {
+      setDocumentsLoading(false);
     }
   }
 
@@ -241,7 +345,8 @@ export default function Home() {
     event.preventDefault();
 
     const trimmed = question.trim();
-    if (!trimmed || loading || !activeConversationId) {
+    const hasImages = composerImages.some((img) => img?.dataUrl);
+    if ((!trimmed && !hasImages) || loading || !activeConversationId) {
       return;
     }
 
@@ -249,12 +354,20 @@ export default function Home() {
     setLoading(true);
     setQuestion("");
 
-    const nextUserMessage = buildMessage("user", trimmed);
+    const nextUserMessage = {
+      ...buildMessage("user", trimmed || (hasImages ? "[Da gui anh]" : "")),
+      images: composerImages.filter((img) => img?.dataUrl),
+    };
     const optimisticMessages = [...messages, nextUserMessage];
     syncConversation(optimisticMessages);
+    setComposerImages([]);
 
     try {
-      const payload = await sendChat(trimmed);
+      const payload = await sendChat(trimmed, {
+        documentMode,
+        selectedDocuments,
+        images: nextUserMessage.images,
+      });
       const nextMessages = [
         ...optimisticMessages,
         buildMessage(
@@ -329,6 +442,18 @@ export default function Home() {
         </div>
 
         <div className="sidebar-panels">
+          <DocumentLibrary
+            documents={documents}
+            activeDocument={activeDocument}
+            documentMode={documentMode}
+            onDocumentModeChange={setDocumentMode}
+            selectedDocuments={selectedDocuments}
+            onToggleSelect={toggleSelectDocument}
+            onActivate={handleActivateDocument}
+            onDelete={handleDeleteDocument}
+            loading={documentsLoading}
+            error={documentsError}
+          />
           <UploadPanel
             selectedFile={selectedFile}
             onFileChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
@@ -380,6 +505,8 @@ export default function Home() {
             onSubmit={handleChat}
             loading={loading}
             disabled={!activeConversationId}
+            images={composerImages}
+            onImagesChange={setComposerImages}
           />
         </div>
       </main>

@@ -41,7 +41,7 @@ class Config:
     TOP_K = 2
     MIN_KEYWORD_SCORE = 1
     MAX_VECTOR_DISTANCE = float(os.getenv("MAX_VECTOR_DISTANCE", "1.2"))
-    REPLACE_INDEX_ON_UPLOAD = os.getenv("REPLACE_INDEX_ON_UPLOAD", "true").lower() == "true"
+    REPLACE_INDEX_ON_UPLOAD = os.getenv("REPLACE_INDEX_ON_UPLOAD", "false").lower() == "true"
 
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", _default_embedding)
     CHAT_MODEL = os.getenv("CHAT_MODEL", _default_chat)

@@ -61,6 +61,7 @@ def query_similar_chunks(
     query_embedding: list[float],
     top_k: int = 4,
     filename_filter: str | None = None,
+    filenames_filter: list[str] | None = None,
 ) -> list[dict]:
     collection = get_or_create_collection()
     query_kwargs = {
@@ -70,6 +71,10 @@ def query_similar_chunks(
     }
     if filename_filter:
         query_kwargs["where"] = {"filename": filename_filter}
+    elif filenames_filter:
+        cleaned = [name.strip() for name in filenames_filter if (name or "").strip()]
+        if cleaned:
+            query_kwargs["where"] = {"filename": {"$in": cleaned}}
     result = collection.query(**query_kwargs)
 
     documents = result.get("documents", [[]])[0]
@@ -85,6 +90,19 @@ def query_similar_chunks(
         })
 
     return rows
+
+
+def delete_document_from_vector_store(filename: str) -> int:
+    filename = (filename or "").strip()
+    if not filename:
+        return 0
+    try:
+        collection = get_or_create_collection()
+        # Chroma supports where filters on metadata.
+        collection.delete(where={"filename": filename})
+        return 1
+    except Exception:
+        return 0
 
 
 def _get_keyword_store_path() -> str:
@@ -141,6 +159,7 @@ def keyword_search_chunks(
     question: str,
     top_k: int = 4,
     filename_filter: str | None = None,
+    filenames_filter: list[str] | None = None,
 ) -> list[dict]:
     keyword_chunks = _load_keyword_chunks()
     tokens = {token.lower() for token in question.split() if token.strip()}
@@ -155,6 +174,16 @@ def keyword_search_chunks(
         ]
         if not keyword_chunks:
             return []
+    elif filenames_filter:
+        cleaned = {name.strip() for name in filenames_filter if (name or "").strip()}
+        if cleaned:
+            keyword_chunks = [
+                item
+                for item in keyword_chunks
+                if (item.get("metadata") or {}).get("filename") in cleaned
+            ]
+            if not keyword_chunks:
+                return []
 
     if not tokens:
         return [
@@ -184,6 +213,25 @@ def keyword_search_chunks(
     if scored_rows:
         return scored_rows[:top_k]
     return []
+
+
+def delete_document_from_keyword_store(filename: str) -> int:
+    filename = (filename or "").strip()
+    if not filename:
+        return 0
+    chunks = _load_keyword_chunks()
+    if not chunks:
+        return 0
+    kept = [
+        item
+        for item in chunks
+        if (item.get("metadata") or {}).get("filename") != filename
+    ]
+    if len(kept) == len(chunks):
+        return 0
+    with open(_get_keyword_store_path(), "w", encoding="utf-8") as f:
+        json.dump(kept, f, ensure_ascii=False)
+    return 1
 
 
 def get_store_stats() -> dict:

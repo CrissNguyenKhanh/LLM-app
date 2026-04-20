@@ -1,10 +1,11 @@
 import os
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
 from werkzeug.utils import secure_filename
 
 from app.services.chunk_service import chunk_text
 from app.services.document_service import extract_text
+from app.services.document_registry_service import upsert_document
 from app.services.embedding_service import (
     get_embedding,
     is_llm_transport_error,
@@ -126,7 +127,21 @@ def upload_file():
             for chunk in enriched_chunks[:3]
         ]
 
-        current_app.config["ACTIVE_DOCUMENT_FILENAME"] = filename
+        session["active_document"] = filename
+
+        upsert_document(
+            {
+                "filename": filename,
+                "display_name": filename,
+                "file_type": extension,
+                "size_bytes": int(os.path.getsize(file_path)) if os.path.exists(file_path) else 0,
+                "char_count": len(extracted_text),
+                "chunk_count": len(enriched_chunks),
+                "saved_count": saved_count,
+                "keyword_saved_count": keyword_saved_count,
+                "embedding_fail_count": embedding_fail_count,
+            }
+        )
 
         payload = {
             "success": True,

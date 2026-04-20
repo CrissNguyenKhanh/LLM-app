@@ -1,11 +1,26 @@
 import React from "react";
 
-function Bubble({ role, content, meta }) {
+function Bubble({ role, content, meta, images }) {
   return (
     <article className={`message-row message-row-${role}`}>
       <div className={`avatar avatar-${role}`}>{role === "user" ? "U" : "AI"}</div>
       <div className={`bubble bubble-${role}`}>
         <div className="bubble-role">{role === "user" ? "You" : "Assistant"}</div>
+        {images?.length ? (
+          <div className="bubble-images">
+            {images
+              .filter((img) => img?.dataUrl)
+              .map((img) => (
+                <img
+                  key={img.id || img.dataUrl}
+                  className="bubble-image"
+                  src={img.dataUrl}
+                  alt={img.name || "image"}
+                  loading="lazy"
+                />
+              ))}
+          </div>
+        ) : null}
         <p>{content}</p>
         {meta ? <div className="bubble-meta">{meta}</div> : null}
       </div>
@@ -35,6 +50,7 @@ export default function MessageList({ messages, loading, activeConversationTitle
           role={message.role}
           content={message.content}
           meta={message.meta}
+          images={message.images}
         />
       ))}
       {loading ? (

@@ -1,6 +1,9 @@
 # backend/app/services/vector_store_service.py
 import os
 import json
+
+os.environ.setdefault("OTEL_SDK_DISABLED", "true")
+
 import chromadb
 from flask import current_app
 

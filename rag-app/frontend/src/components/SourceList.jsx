@@ -5,26 +5,24 @@ export default function SourceList({ sources }) {
     <section className="panel sources-panel">
       <div className="panel-header">
         <p className="eyebrow">Sources</p>
-        <h2>Doan trich xuat</h2>
+        <h2>Đoạn trích xuất</h2>
       </div>
 
-      {!sources.length ? (
+      {!sources?.length ? (
         <div className="empty-sources">
-          Chua co source. Khi ban upload tai lieu va hoi, cac chunk lien quan se hien o day.
+          Chưa có source. Khi bạn upload tài liệu và hỏi, các chunk liên quan sẽ hiện ở đây.
         </div>
       ) : (
         <div className="source-list">
           {sources.map((source, index) => (
             <article className="source-card" key={`${source.filename}-${index}`}>
               <div className="source-top">
-                <strong>{source.filename || "Khong ro file"}</strong>
-                <span>{`Chunk ${source.chunk_index ?? "?"}`}</span>
+                <strong>{source.filename || "Không rõ file"}</strong>
+                <span>Chunk {source.chunk_index ?? "?"}</span>
               </div>
-              <p>{source.snippet || "Khong co snippet."}</p>
+              <p>{source.snippet || "Không có snippet."}</p>
               <small>
-                {source.distance != null
-                  ? `distance: ${Number(source.distance).toFixed(4)}`
-                  : "distance: n/a"}
+                {source.distance != null ? `distance: ${Number(source.distance).toFixed(4)}` : "distance: n/a"}
               </small>
             </article>
           ))}

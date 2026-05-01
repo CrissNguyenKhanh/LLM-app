@@ -43,7 +43,12 @@ export async function fetchHealth() {
 }
 
 export async function sendChat(question, options = {}) {
-  const { documentMode = "active", selectedDocuments = [], images = [] } = options || {};
+  const {
+    documentMode = "active",
+    selectedDocuments = [],
+    images = [],
+    messageHistory = [],
+  } = options || {};
   return request("/api/chat", {
     method: "POST",
     headers: {
@@ -54,6 +59,10 @@ export async function sendChat(question, options = {}) {
       document_mode: documentMode,
       selected_documents: selectedDocuments,
       images,
+      message_history: messageHistory.slice(-20).map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
     }),
   });
 }

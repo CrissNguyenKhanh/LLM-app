@@ -12,13 +12,13 @@ import {
   setActiveDocument as apiSetActiveDocument,
   uploadDocument,
 } from "../api/chatApi";
+import ActionSimulator from "../components/ActionSimulator";
 import AuthScreen from "../components/AuthScreen";
 import ChatBox from "../components/ChatBox";
 import DocumentLibrary from "../components/DocumentLibrary";
 import MessageList from "../components/MessageList";
 import SourceList from "../components/SourceList";
 import UploadPanel from "../components/UploadPanel";
-import "./Home.css";
 
 function buildMessage(role, content, meta) {
   return {
@@ -48,6 +48,48 @@ function createConversation() {
   };
 }
 
+function normalizeText(text) {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLowerCase();
+}
+
+function pickActionKey(normalizedText) {
+  if (/\b(chay|run|sprint)\b/.test(normalizedText)) return "run";
+  if (/\b(di|buoc|walk)\b/.test(normalizedText)) return "walk";
+  if (/\b(nhay|jump|bat)\b/.test(normalizedText)) return "jump";
+  if (/\b(chao|vay tay|wave)\b/.test(normalizedText)) return "wave";
+  if (/\b(xoay|quay|spin|turn)\b/.test(normalizedText)) return "spin";
+  if (/\b(ngoi|sit)\b/.test(normalizedText)) return "sit";
+  if (/\b(dam|punch)\b/.test(normalizedText)) return "punch";
+  if (/\b(da|kick)\b/.test(normalizedText)) return "kick";
+  if (/\b(nang tay|gio tay|raise)\b/.test(normalizedText)) return "raise";
+  return "idle";
+}
+
+function extractSimulationRequest(text) {
+  const originalText = String(text || "").trim();
+  const normalized = normalizeText(originalText);
+  const wantsSimulation =
+    normalized.includes("mo phong") && /hanh\s+dong/.test(normalized);
+
+  if (!wantsSimulation) {
+    return null;
+  }
+
+  const actionMatch = normalized.match(/hanh\s+dong\s+(.+)$/);
+  const actionText = actionMatch?.[1]?.trim() || originalText;
+
+  return {
+    id: `simulation-${Date.now()}`,
+    originalText,
+    actionText,
+    actionKey: pickActionKey(normalized),
+  };
+}
+
 export default function Home() {
   const [authMode, setAuthMode] = useState("login");
   const [authLoading, setAuthLoading] = useState(true);
@@ -71,6 +113,7 @@ export default function Home() {
   const [documentMode, setDocumentMode] = useState("active");
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [composerImages, setComposerImages] = useState([]);
+  const [simulation, setSimulation] = useState(null);
   const booting = authLoading || !health;
 
   useEffect(() => {
@@ -220,6 +263,7 @@ export default function Home() {
     setSources([]);
     setQuestion("");
     setError("");
+    setSimulation(null);
   }
 
   function handleSelectConversation(conversation) {
@@ -266,6 +310,7 @@ export default function Home() {
       setSelectedDocuments([]);
       setComposerImages([]);
       setError("");
+      setSimulation(null);
     }
   }
 
@@ -354,6 +399,11 @@ export default function Home() {
     setLoading(true);
     setQuestion("");
 
+    const nextSimulation = extractSimulationRequest(trimmed);
+    if (nextSimulation) {
+      setSimulation(nextSimulation);
+    }
+
     const nextUserMessage = {
       ...buildMessage("user", trimmed || (hasImages ? "[Da gui anh]" : "")),
       images: composerImages.filter((img) => img?.dataUrl),
@@ -367,6 +417,7 @@ export default function Home() {
         documentMode,
         selectedDocuments,
         images: nextUserMessage.images,
+        messageHistory: optimisticMessages,
       });
       const nextMessages = [
         ...optimisticMessages,
@@ -491,6 +542,10 @@ export default function Home() {
         {error ? <div className="error-banner">{error}</div> : null}
 
         <div className="chat-main-inner">
+          <ActionSimulator
+            simulation={simulation}
+            onClose={() => setSimulation(null)}
+          />
           <MessageList
             messages={messages}
             loading={loading}
@@ -513,4 +568,3 @@ export default function Home() {
     </div>
   );
 }
-

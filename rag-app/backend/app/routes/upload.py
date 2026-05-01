@@ -60,7 +60,7 @@ def upload_file():
     file.save(file_path)
 
     try:
-        if current_app.config.get("REPLACE_INDEX_ON_UPLOAD", True):
+        if current_app.config.get("REPLACE_INDEX_ON_UPLOAD", False):
             clear_vector_store()
             clear_keyword_store()
 

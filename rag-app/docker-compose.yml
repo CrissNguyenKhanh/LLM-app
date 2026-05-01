@@ -1,19 +1,32 @@
-env = "DATABASE_LINE1"
-version: '3.8'
-services:
-  postgres:
-    image: postgres:latest
-    environment:
-      POSTGRES_USER: ${DATABASE_USER}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-    POSTGRES_DB: ${DATABASE_NAME}
-  ports:
-    - "5432:5432"
-DockerImage:
-  build: .
-  ports:
-    - "8000:8000"
-  depends_on:
-    - postgres
-  environment:
+version: "3.8"
 
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - OPENAI_BASE_URL=http://host.docker.internal:11434/v1
+      - EMBEDDING_MODEL=nomic-embed-text
+      - CHAT_MODEL=llama3.2
+    volumes:
+      - backend-uploads:/app/uploads
+      - backend-chroma:/app/chroma_db
+      - backend-data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend-uploads:
+  backend-chroma:
+  backend-data:

@@ -232,6 +232,14 @@ def chat():
     question = data.get("question") if data else None
     document_mode = (data.get("document_mode") if data else None) or "active"
     selected_documents = data.get("selected_documents") if data else None
+    message_history = data.get("message_history") if data else None
+    images = data.get("images") if data else None
+
+    if images:
+        current_app.logger.info(
+            "Chat request has %d image(s) — image processing chua duoc ho tro, bo qua.",
+            len(images),
+        )
 
     if not question:
         return jsonify({
@@ -246,6 +254,7 @@ def chat():
             answer = generate_answer_freeform(
                 question=question,
                 model=current_app.config["CHAT_MODEL"],
+                message_history=message_history,
             )
             body = {
                 "success": True,
@@ -345,6 +354,7 @@ def chat():
                 question=question,
                 context_blocks=context_blocks,
                 model=current_app.config["CHAT_MODEL"],
+                message_history=message_history,
             )
             if _is_model_refusal(answer):
                 answer_status = "refused_fallback"

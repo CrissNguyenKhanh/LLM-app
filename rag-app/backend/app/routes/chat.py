@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import unicodedata
 
@@ -13,6 +14,7 @@ from app.services.embedding_service import (
     llm_timeout_user_hint,
     llm_unreachable_user_hint,
 )
+from app.services.document_registry_service import list_documents
 from app.utils.auth import require_auth
 from app.services.vector_store_service import (
     get_store_stats,
@@ -68,6 +70,48 @@ def _load_request_json() -> dict | None:
         if isinstance(parsed, dict):
             return parsed
     return None
+
+
+def _document_exists(filename: str) -> bool:
+    filename = (filename or "").strip()
+    if not filename:
+        return False
+
+    uploads_dir = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
+    file_path = os.path.abspath(os.path.join(uploads_dir, filename))
+    try:
+        if os.path.commonpath([uploads_dir, file_path]) != uploads_dir:
+            return False
+    except ValueError:
+        return False
+    return os.path.isfile(file_path)
+
+
+def _resolve_active_document(data: dict | None) -> str:
+    session_document = str(session.get("active_document") or "").strip()
+    if _document_exists(session_document):
+        return session_document
+
+    requested_document = ""
+    if data:
+        requested_document = str(
+            data.get("active_document") or data.get("activeDocument") or ""
+        ).strip()
+
+    if _document_exists(requested_document):
+        session["active_document"] = requested_document
+        return requested_document
+
+    docs = list_documents()
+    if len(docs) == 1:
+        only_document = str(docs[0].get("filename") or "").strip()
+        if _document_exists(only_document):
+            session["active_document"] = only_document
+            return only_document
+
+    if session_document:
+        session["active_document"] = ""
+    return ""
 
 
 def _log_embedding_failure(exc: BaseException) -> None:
@@ -247,7 +291,7 @@ def chat():
             "message": "Thieu question",
         }), 400
 
-    active_document = str(session.get("active_document") or "").strip()
+    active_document = _resolve_active_document(data)
     if document_mode == "active" and not active_document:
         backend_warnings: list[str] = []
         try:

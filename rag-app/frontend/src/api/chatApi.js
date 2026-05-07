@@ -45,6 +45,7 @@ export async function fetchHealth() {
 export async function sendChat(question, options = {}) {
   const {
     documentMode = "active",
+    activeDocument = "",
     selectedDocuments = [],
     images = [],
     messageHistory = [],
@@ -57,6 +58,7 @@ export async function sendChat(question, options = {}) {
     body: JSON.stringify({
       question,
       document_mode: documentMode,
+      active_document: activeDocument,
       selected_documents: selectedDocuments,
       images,
       message_history: messageHistory.slice(-20).map((m) => ({

@@ -415,6 +415,7 @@ export default function Home() {
     try {
       const payload = await sendChat(trimmed, {
         documentMode,
+        activeDocument,
         selectedDocuments,
         images: nextUserMessage.images,
         messageHistory: optimisticMessages,
